@@ -22,12 +22,27 @@ class ControllerActionPredispatchStart implements \Magento\Framework\Event\Obser
      * @var \Magento\Backend\Model\Session
      */
     private $session;
+    /**
+     * @var \Magento\User\Model\ResourceModel\User
+     */
+    private $user;
+    /**
+     * @var \Magento\Framework\Message\ManagerInterface
+     */
+    private $messageManager;
+    /**
+     * @var \Magento\Framework\Event\ManagerInterface
+     */
+    private $eventManager;
 
     public function __construct(
         \Twinsen\QuickLogin\Helper\Config $config,
         \Magento\Backend\Model\Auth\Session $authSession,
         \Magento\Backend\Model\UrlInterface $url,
-        \Magento\Backend\Model\Session $session
+        \Magento\Backend\Model\Session $session,
+        \Magento\User\Model\User $user,
+        \Magento\Framework\Message\ManagerInterface $messageManager,
+        \Magento\Framework\Event\ManagerInterface $eventManager
     )
     {
 
@@ -35,6 +50,9 @@ class ControllerActionPredispatchStart implements \Magento\Framework\Event\Obser
         $this->authSession = $authSession;
         $this->url = $url;
         $this->session = $session;
+        $this->user = $user;
+        $this->messageManager = $messageManager;
+        $this->eventManager = $eventManager;
     }
 
     /**
@@ -55,27 +73,38 @@ class ControllerActionPredispatchStart implements \Magento\Framework\Event\Obser
         if ($this->authSession->isLoggedIn()) {
             return;
         }
+        $userName = $this->_getHelper()->getAutoLoginUsername();
+        $user = $this->user->loadByUsername($userName);
+        //var_dump($user);
 
-        $user = Mage::getModel('admin/user')->loadByUsername($this->_getHelper()->getAutoLoginUsername());
+        $this->eventManager->dispatch(
+            'admin_user_authenticate_before',
+            ['username' => $userName, 'user' => $user]
+        );
 
-        if ($this->url->useSecretKey()) {
-            $this->url->renewSecretUrls();
-        }
+        $result = true;
+        $password = "";
+        $this->eventManager->dispatch(
+            'admin_user_authenticate_after',
+            ['username' => $userName, 'password' => $password, 'user' => $user, 'result' => $result]
+        );
+        $this->authSession->setUser($user);
+        $this->authSession->processLogin();
+        $this->eventManager->dispatch(
+            'backend_auth_user_login_success',
+            ['user' => $user]
+        );
 
-        $session = $this->session;
-        $session->setIsFirstVisit(true);
-        $session->setUser($user);
-        $session->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
 
-        //Mage::dispatchEvent('admin_session_user_login_success', array('user' => $user));
 
-        if ($session->isLoggedIn()) {
-            $this->_getSession()->addWarning(
-                $this->_getHelper()->__('You were automatically logged in by the extension CeckosLab_QuickLogin! Please don\'t use CeckosLab_QuickLogin on production environment! It may lead to serious security issues!')
+        if ($this->authSession->isLoggedIn()) {
+            //die("logged in");
+            $this->messageManager->addWarning(
+                __('You were automatically logged in by the extension CeckosLab_QuickLogin! Please don\'t use CeckosLab_QuickLogin on production environment! It may lead to serious security issues!')
             );
 
-            $redirectUrl = Mage::getSingleton('adminhtml/url')
-                ->getUrl(Mage::getModel('admin/user')->getStartupPageUrl(), array('_current' => false));
+            $redirectUrl = $this->url
+                ->getUrl($this->url->getStartupPageUrl(), array('_current' => false));
 
             header('Location: ' . $redirectUrl);
             exit;
@@ -93,10 +122,10 @@ class ControllerActionPredispatchStart implements \Magento\Framework\Event\Obser
     /**
      * Retrieve adminhtml session model object
      *
-     * @return Mage_Adminhtml_Model_Session
+     * @return \Magento\Backend\Model\Session
      */
     protected function _getSession()
     {
-        return Mage::getSingleton('adminhtml/session');
+        return $this->session;
     }
 }
