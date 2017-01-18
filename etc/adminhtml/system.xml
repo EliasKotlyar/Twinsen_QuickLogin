@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="dev" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+            <tab>advanced</tab>
+            <resource>Twinsen_QuickLogin::config_twinsen_quicklogin</resource>
+            <group id="quicklogin" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+                <label>quicklogin</label>
+                <field id="enabled" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="select">
+                    <label>enabled</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="autologin_admin_username" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="select">
+                    <label>autologin_admin_username</label>
+                    <source_model>Twinsen\QuickLogin\Model\Source\AdminUsername</source_model>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>
